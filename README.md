@@ -40,23 +40,29 @@ npm start
 
 默认 `http://localhost:4173`。`PORT`、`STATIC_DIR` 可改。
 
-## Cloudflare Pages
-
-构建命令 `npm run build`，输出目录 `dist`。`functions/api/` 提供上述接口。
+## Cloudflare（Workers + 静态资源）
 
 ```bash
 npm run build
-npx wrangler pages deploy dist --project-name houzhu
+npx wrangler deploy --keep-vars
 ```
 
-部署后在 Cloudflare 控制台写入环境变量（密钥用 Encrypt / Secret）。生产与预览都要填。
-
-也可用：
+部署后在 Cloudflare 控制台写入环境变量，或：
 
 ```bash
-npx wrangler pages secret put EMBED_KEY --project-name houzhu
-npx wrangler pages secret put CHAT_KEY --project-name houzhu
+npx wrangler secret put EMBED_URL
+npx wrangler secret put EMBED_MODEL
+npx wrangler secret put EMBED_KEY
+npx wrangler secret put CHAT_URL
+npx wrangler secret put CHAT_MODEL
+npx wrangler secret put CHAT_KEY
+# 可选
+npx wrangler secret put RERANK_URL
+npx wrangler secret put RERANK_MODEL
+npx wrangler secret put RERANK_KEY
 ```
+
+`functions/api/` 仍可用于 Cloudflare Pages；本仓库默认用 Workers 部署。
 
 ## Vercel
 
