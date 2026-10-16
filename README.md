@@ -44,10 +44,10 @@ npm start
 
 ```bash
 npm run build
-npx wrangler deploy --keep-vars
+npx wrangler deploy
 ```
 
-线上默认用 Gemini：`gemini-embedding-001` + `gemini-3.5-flash-lite`。密钥只放 Cloudflare 控制台，部署必须加 `--keep-vars`，否则会清掉控制台里的变量。
+线上用 Gemini：`gemini-embedding-001` + `gemini-3.5-flash-lite`。`EMBED_*` / `CHAT_*` 必须是 Cloudflare **Secrets**，不要用 TEXT 变量。Secrets 在 `wrangler deploy` 时会保留。
 
 部署后在 Cloudflare 控制台写入环境变量，或：
 
