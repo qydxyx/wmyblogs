@@ -88,6 +88,93 @@ async function loadOpenCC() {
   }
 }
 
+const DB_NAME = "houzhu";
+const DB_VER = 1;
+const CACHE_KEY = "minisearch";
+const SCHEMA = 2;
+
+function miniOptions() {
+  return {
+    fields: ["title", "body", "extra"],
+    storeFields: ["kind", "title", "date", "url", "passage", "weight"],
+    idField: "id",
+    tokenize,
+    processTerm: (t) => t,
+    searchOptions: {
+      tokenize,
+      processTerm: (t) => t,
+      boost: { title: 2.2, body: 1, extra: 0.35 },
+      fuzzy: 0,
+      prefix: false,
+      combineWith: "OR"
+    }
+  };
+}
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("cache")) db.createObjectStore("cache");
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function readCache() {
+  try {
+    const db = await openDb();
+    const rec = await new Promise((resolve, reject) => {
+      const tx = db.transaction("cache", "readonly");
+      const r = tx.objectStore("cache").get(CACHE_KEY);
+      r.onsuccess = () => resolve(r.result || null);
+      r.onerror = () => reject(r.error);
+    });
+    db.close();
+    if (!rec || rec.schema !== SCHEMA || !rec.mini) return null;
+    return rec;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(rec) {
+  try {
+    const db = await openDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("cache", "readwrite");
+      tx.objectStore("cache").put(rec, CACHE_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch {
+    postMessage({ type: "progress", message: "本地缓存没写上，下次仍可能重建。" });
+  }
+}
+
+function activate(instance, counts, total, extra = {}) {
+  mini = instance;
+  ready = true;
+  postMessage({ type: "ready", counts, total, ...extra });
+}
+
+function stampOf(payloads) {
+  return FILES.map(([file], i) => {
+    const arr = (payloads[i] && payloads[i][file]) || [];
+    const first = arr[0] || {};
+    const last = arr[arr.length - 1] || {};
+    return [
+      file,
+      arr.length,
+      dateKey(first.date || first.reply_date),
+      dateKey(last.date || last.reply_date)
+    ].join(":");
+  }).join("|");
+}
+
 async function fetchJson(name) {
   let last = "";
   for (const base of BASES) {
@@ -185,45 +272,93 @@ function recency(date) {
   return 1 + Math.max(0, Math.min(1, (y - 2014) / 12)) * 0.25;
 }
 
-async function build() {
+async function fetchAll(quiet) {
+  const payloads = [];
+  for (const [file, label] of FILES) {
+    if (!quiet) postMessage({ type: "progress", message: `正在读取${label}` });
+    payloads.push(await fetchJson(file));
+  }
+  return payloads;
+}
+
+function indexFromDocs(all, onChunk) {
+  const instance = new MiniSearch(miniOptions());
+  const chunk = 500;
+  for (let i = 0; i < all.length; i += chunk) {
+    instance.addAll(all.slice(i, i + chunk));
+    if (onChunk) onChunk(Math.min(i + chunk, all.length), all.length);
+  }
+  return instance;
+}
+
+async function persist(instance, stamp, counts, total) {
+  try {
+    await writeCache({
+      schema: SCHEMA,
+      stamp,
+      counts,
+      total,
+      mini: instance.toJSON(),
+      savedAt: Date.now()
+    });
+  } catch {
+    /* quota */
+  }
+}
+
+async function restoreCache() {
+  const rec = await readCache();
+  if (!rec) return null;
+  try {
+    const instance = MiniSearch.loadJS(rec.mini, miniOptions());
+    return rec.counts && rec.total ? { instance, rec } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function rebuild(payloads, stamp) {
   const all = [];
   const counts = { article: 0, note: 0, qa: 0, talk: 0 };
-  for (const [file, label] of FILES) {
-    postMessage({ type: "progress", message: `正在读取${label}` });
-    const payload = await fetchJson(file);
-    const docs = docsFrom(file, payload);
+  FILES.forEach(([file], i) => {
+    const docs = docsFrom(file, payloads[i] || {});
     all.push(...docs);
     if (file === "article") counts.article = docs.length;
     if (file === "annotation") counts.note = docs.length;
     if (file === "comment") counts.qa = docs.length;
     if (file === "transcript") counts.talk = docs.length;
-  }
-  postMessage({ type: "progress", message: `正在建立索引 ${all.length} 条` });
-  mini = new MiniSearch({
-    fields: ["title", "body", "extra"],
-    storeFields: ["kind", "title", "date", "url", "passage", "weight"],
-    idField: "id",
-    tokenize,
-    processTerm: (t) => t,
-    searchOptions: {
-      tokenize,
-      processTerm: (t) => t,
-      boost: { title: 2.2, body: 1, extra: 0.35 },
-      fuzzy: 0,
-      prefix: false,
-      combineWith: "OR"
-    }
   });
-  const chunk = 500;
-  for (let i = 0; i < all.length; i += chunk) {
-    mini.addAll(all.slice(i, i + chunk));
+  postMessage({ type: "progress", message: `正在建立索引 ${all.length} 条` });
+  const instance = indexFromDocs(all, (n, total) => {
+    postMessage({ type: "progress", message: `正在建立索引 ${n} / ${total}` });
+  });
+  activate(instance, counts, all.length, { cached: false });
+  await persist(instance, stamp, counts, all.length);
+}
+
+async function start() {
+  const cached = await restoreCache();
+  if (cached) {
+    activate(cached.instance, cached.rec.counts, cached.rec.total, {
+      cached: true,
+      updating: true
+    });
+    postMessage({ type: "progress", message: "索引已从本地载入。正在后台核对镜像。" });
+  }
+
+  const payloads = await fetchAll(Boolean(cached));
+  const stamp = stampOf(payloads);
+  if (cached && cached.rec.stamp === stamp) {
     postMessage({
       type: "progress",
-      message: `正在建立索引 ${Math.min(i + chunk, all.length)} / ${all.length}`
+      message: `索引已是最新，共 ${cached.rec.total} 条。`
     });
+    loadOpenCC().catch(() => {});
+    return;
   }
-  ready = true;
-  postMessage({ type: "ready", counts, total: all.length });
+
+  if (cached) postMessage({ type: "progress", message: "镜像有更新，正在重建索引。" });
+  await rebuild(payloads, stamp);
   loadOpenCC().catch(() => {});
 }
 
@@ -279,8 +414,15 @@ self.onmessage = async (ev) => {
   const msg = ev.data || {};
   if (msg.type === "start") {
     try {
-      await build();
+      await start();
     } catch (err) {
+      if (ready) {
+        postMessage({
+          type: "progress",
+          message: `后台更新失败，仍用本地索引。${err && err.message ? err.message : err}`
+        });
+        return;
+      }
       postMessage({ type: "error", message: String(err && err.message ? err.message : err) });
     }
     return;

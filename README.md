@@ -2,7 +2,7 @@
 
 王孟源博客的检索前端：正文、后注、作者回复、访谈。语料在运行时从 [taizihuang/wmyblog](https://github.com/taizihuang/wmyblog) / [wmyblog.site](https://wmyblog.site/) 的 search JSON 拉取。
 
-浏览器内 MiniSearch 做词面检索。Embedding 和聊天模型**必须**写在服务器环境变量里；Rerank 可选。页面不收密钥。
+浏览器内 MiniSearch 做词面检索。索引会写入本机 IndexedDB：第一次建立后刷新秒开，后台再核对 [wmyblog](https://github.com/taizihuang/wmyblog) 镜像是否有更新。Embedding 和聊天模型**必须**写在服务器环境变量里；Rerank 可选。页面不收密钥。
 
 ## 环境变量
 

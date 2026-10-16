@@ -20,7 +20,9 @@ worker.addEventListener("message", (ev) => {
   }
   if (msg.type === "ready") {
     indexReady = true;
-    setStatus(`索引就绪，共 ${msg.total} 条。`);
+    const fromCache = msg.cached ? "本地缓存，" : "";
+    const updating = msg.updating ? "正在后台核对镜像。" : "";
+    setStatus(`索引就绪，${fromCache}共 ${msg.total} 条。${updating}`);
     applyCounts(msg.counts || {});
     if (queuedAsk) {
       queuedAsk = false;
