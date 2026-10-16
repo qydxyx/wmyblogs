@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build-index.mjs && vite build",
+    "build-index": "node scripts/build-index.mjs",
     "preview": "vite preview --host",
     "start": "node server/index.mjs"
   },

@@ -12,3 +12,6 @@ dist
 .wrangler
 .vercel
 .vite
+public/search-index.json
+public/search-index.json.gz
+public/search-meta.json

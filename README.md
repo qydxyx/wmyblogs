@@ -2,7 +2,7 @@
 
 王孟源博客的检索前端：正文、后注、作者回复、访谈。语料在运行时从 [taizihuang/wmyblog](https://github.com/taizihuang/wmyblog) / [wmyblog.site](https://wmyblog.site/) 的 search JSON 拉取。
 
-浏览器内 MiniSearch 做词面检索。索引会写入本机 IndexedDB：第一次建立后刷新秒开，后台再核对 [wmyblog](https://github.com/taizihuang/wmyblog) 镜像是否有更新。Embedding 和聊天模型**必须**写在服务器环境变量里；Rerank 可选。页面不收密钥。
+词面检索在 Cloudflare Worker 上完成：部署时预建精简语料，页面打开即可问，不必在浏览器里等建索引。每 6 小时从镜像核对更新。Embedding 和聊天模型**必须**写在服务器环境变量里；Rerank 可选。页面不收密钥。
 
 ## 环境变量
 
@@ -20,7 +20,7 @@
 | `RERANK_MODEL` | 否 | 型号 |
 | `RERANK_KEY` | 否 | 密钥；三者都有才启用 rerank |
 
-接口：`GET /api/config`（不返回密钥）、`POST /api/refine`、`POST /api/chat`。
+接口：`GET /api/config`（不返回密钥）、`POST /api/search`、`POST /api/refine`、`POST /api/chat`。
 
 ## 本地
 

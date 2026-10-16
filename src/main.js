@@ -5,55 +5,17 @@ const KIND_LABEL = {
   talk: "访谈"
 };
 
-const worker = new Worker(new URL("./search.worker.js", import.meta.url), { type: "module" });
-let reqSeq = 0;
-const pending = new Map();
-let indexReady = false;
-let queuedAsk = false;
-let serverConfig = { ready: false, embed: false, chat: false, rerank: false };
+let serverConfig = { ready: false, embed: false, chat: false, rerank: false, index: { total: 0, counts: {} } };
 
-worker.addEventListener("message", (ev) => {
-  const msg = ev.data || {};
-  if (msg.type === "progress") {
-    setStatus(msg.message);
-    return;
-  }
-  if (msg.type === "ready") {
-    indexReady = true;
-    const fromCache = msg.cached ? "本地缓存，" : "";
-    const updating = msg.updating ? "正在后台核对镜像。" : "";
-    setStatus(`索引就绪，${fromCache}共 ${msg.total} 条。${updating}`);
-    applyCounts(msg.counts || {});
-    if (queuedAsk) {
-      queuedAsk = false;
-      const form = document.getElementById("ask-form");
-      if (form && String(new FormData(form).get("q") || "").trim()) runAsk(form);
-    }
-    return;
-  }
-  if (msg.type === "error") {
-    setStatus(`索引失败：${msg.message}`);
-    return;
-  }
-  if (msg.type === "results") {
-    const wait = pending.get(msg.req);
-    if (wait) {
-      pending.delete(msg.req);
-      wait(msg.hits || []);
-    }
-  }
-});
-
-worker.addEventListener("error", (err) => {
-  setStatus(`索引线程出错：${err.message || err}`);
-});
-
-function searchIndex(query, kinds, limit = 28) {
-  const req = ++reqSeq;
-  return new Promise((resolve) => {
-    pending.set(req, resolve);
-    worker.postMessage({ type: "search", req, query, kinds, limit });
+async function searchIndex(query, kinds, limit = 28) {
+  const res = await fetch("/api/search", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query, kinds, limit })
   });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || `search ${res.status}`);
+  return Array.isArray(data.hits) ? data.hits : [];
 }
 
 function friendlyError(err) {
@@ -309,18 +271,13 @@ async function runAsk(form) {
   answerRoot.replaceChildren();
   hitsRoot.replaceChildren();
   if (!q) return;
-  if (!indexReady) {
-    queuedAsk = true;
-    setStatus("索引还在建立，就绪后自动检索。");
-    return;
-  }
   if (!serverConfig.ready) {
     setStatus("服务器还没配置 embedding 和聊天模型。词面检索仍可用，先列出命中。");
   }
   const ac = new AbortController();
   form.dataset.busy = "1";
   try {
-    setStatus("正在词面检索。");
+    setStatus("正在检索。");
     let hits = await searchIndex(q, kinds);
     if (!hits.length) {
       setStatus("没有命中。换个说法，或勾选访谈。");
@@ -384,6 +341,10 @@ async function loadServerConfig() {
   setModelLine("embed", serverConfig.embed, serverConfig.embedModel);
   setModelLine("rerank", serverConfig.rerank, serverConfig.rerankModel || "已接通");
   setModelLine("chat", serverConfig.chat, serverConfig.chatModel);
+  const index = serverConfig.index || {};
+  applyCounts(index.counts || {});
+  if (index.total) setStatus(`共 ${index.total} 条，可直接问。`);
+  else setStatus("检索在服务器上，可直接问。");
 }
 
 function bindArchive() {
@@ -460,4 +421,3 @@ bindArchive();
 bindMotion();
 pauseVideoWhenHidden();
 loadServerConfig();
-worker.postMessage({ type: "start" });

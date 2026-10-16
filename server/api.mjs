@@ -1,3 +1,5 @@
+import { ensureIndex, peekMeta, runSearch } from "./search-runtime.mjs";
+
 const REQUIRED = [
   ["EMBED_URL", "EMBED_MODEL", "EMBED_KEY"],
   ["CHAT_URL", "CHAT_MODEL", "CHAT_KEY"]
@@ -173,10 +175,44 @@ async function rerankDocs(env, query, documents) {
   }));
 }
 
-export async function handleConfig(request, env) {
+export async function handleConfig(request, env, ctx) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors() });
   if (request.method !== "GET") return json({ error: "GET only" }, 405);
-  return json(describeConfig(env));
+  if (ctx && typeof ctx.waitUntil === "function") {
+    ctx.waitUntil(ensureIndex(env).catch(() => {}));
+  }
+  let index = peekMeta();
+  if (!index) {
+    try {
+      const res = await env.ASSETS.fetch(new Request("http://assets/search-meta.json"));
+      if (res.ok) index = await res.json();
+    } catch {
+      index = null;
+    }
+  }
+  return json({ ...describeConfig(env), index: index || { total: 0, counts: {} } });
+}
+
+export async function handleSearch(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors() });
+  if (request.method !== "POST") return json({ error: "POST only" }, 405);
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return json({ error: "invalid json" }, 400);
+  }
+  const query = String(payload.query || "").trim();
+  if (!query) return json({ error: "需要 query" }, 400);
+  const kinds = Array.isArray(payload.kinds) ? payload.kinds : [];
+  const limit = Math.min(40, Number(payload.limit) || 28);
+  try {
+    await ensureIndex(env);
+    const hits = runSearch(query, kinds, limit);
+    return json({ hits, total: (peekMeta() && peekMeta().total) || hits.length });
+  } catch (err) {
+    return json({ error: String(err.message || err) }, 502);
+  }
 }
 
 export async function handleRefine(request, env) {
@@ -245,10 +281,11 @@ export async function handleChat(request, env) {
   }
 }
 
-export async function handleApi(request, env = {}) {
+export async function handleApi(request, env = {}, ctx) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
-  if (path === "/api/config") return handleConfig(request, env);
+  if (path === "/api/config") return handleConfig(request, env, ctx);
+  if (path === "/api/search") return handleSearch(request, env);
   if (path === "/api/refine") return handleRefine(request, env);
   if (path === "/api/chat") return handleChat(request, env);
   return json({ error: "not found" }, 404);
