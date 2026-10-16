@@ -47,6 +47,8 @@ npm run build
 npx wrangler deploy --keep-vars
 ```
 
+线上默认用 Gemini：`gemini-embedding-001` + `gemini-3.5-flash-lite`。密钥只放 Cloudflare 控制台，部署必须加 `--keep-vars`，否则会清掉控制台里的变量。
+
 部署后在 Cloudflare 控制台写入环境变量，或：
 
 ```bash

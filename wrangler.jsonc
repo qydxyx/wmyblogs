@@ -3,6 +3,13 @@
   "name": "houzhu",
   "main": "worker.js",
   "compatibility_date": "2026-10-16",
+  // EMBED_KEY / CHAT_KEY stay in the dashboard. Always deploy with --keep-vars.
+  "vars": {
+    "EMBED_URL": "https://generativelanguage.googleapis.com/v1beta/openai/embeddings",
+    "EMBED_MODEL": "gemini-embedding-001",
+    "CHAT_URL": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "CHAT_MODEL": "gemini-3.5-flash-lite"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
