@@ -1,0 +1,16 @@
+services:
+  houzhu:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      EMBED_URL: ${EMBED_URL}
+      EMBED_MODEL: ${EMBED_MODEL}
+      EMBED_KEY: ${EMBED_KEY}
+      CHAT_URL: ${CHAT_URL}
+      CHAT_MODEL: ${CHAT_MODEL}
+      CHAT_KEY: ${CHAT_KEY}
+      RERANK_URL: ${RERANK_URL:-}
+      RERANK_MODEL: ${RERANK_MODEL:-}
+      RERANK_KEY: ${RERANK_KEY:-}

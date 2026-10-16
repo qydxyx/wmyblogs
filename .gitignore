@@ -1,0 +1,14 @@
+node_modules
+dist
+/assets
+
+.DS_Store
+.taste-skill
+*.log
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler
+.vercel
+.vite

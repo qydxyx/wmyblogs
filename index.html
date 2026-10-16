@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>后注 · 王孟源博客检索</title>
+  <meta name="description" content="检索王孟源博客的正文、后注和作者回复。数据来自 GitHub 镜像，对照和作答走服务器上的模型。">
+  <script>document.documentElement.classList.add("js")</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&family=Noto+Serif+TC:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="button" href="#ask">问档案</a>
+  </header>
+
+  <div class="pin-wrap" id="top">
+    <h1 class="pin-layer">
+      <span class="name name-a">后</span>
+      <span class="name name-b">注</span>
+    </h1>
+    <div class="panels">
+      <article class="panel panel-first">
+        <div class="panel-copy">
+          <p class="support" data-rise style="--i:1">王孟源博客的正文、后注和作者回复，用服务器上的模型检索。</p>
+          <a class="button" href="#ask" data-rise style="--i:2">问档案</a>
+          <div class="panel-links" data-rise style="--i:3">
+            <a class="link" href="#stats">数字</a>
+            <a class="link" href="#models">对照</a>
+            <a class="link" href="#faq">出处</a>
+          </div>
+        </div>
+        <figure class="panel-photo shutter" data-reveal>
+          <img class="photo" src="/assets/bubble-chamber-event-decay-of-neutral-lambda.jpg" width="1920" height="2370" alt="1959 年气泡室径迹照片：中性拉姆达超子的产生与衰变" fetchpriority="high" decoding="async">
+        </figure>
+      </article>
+      <article class="panel panel-mid">
+        <figure class="frame">
+          <img class="photo drift" src="/assets/recording-bubble-chamber.jpg" width="1920" height="7567" alt="直立的记录用气泡室机械，细长的探测腔体占满画面" loading="lazy" decoding="async">
+        </figure>
+        <p class="caption">粒子径迹留下来，判断却被后注改写。</p>
+      </article>
+    </div>
+  </div>
+
+  <section class="ask" id="ask">
+    <h2 class="head" data-reveal>问档案</h2>
+    <p class="lead" data-reveal>索引从 GitHub 镜像拉取。对照和作答走服务器上的 embedding 与聊天模型。</p>
+    <div class="ask-grid">
+      <form id="ask-form">
+        <label class="sr-only" for="q">问题</label>
+        <textarea id="q" name="q" required placeholder="例如：天基雷达为什么行不通"></textarea>
+        <div class="ask-row">
+          <label class="chk"><input type="checkbox" name="type" value="article" checked> 正文</label>
+          <label class="chk"><input type="checkbox" name="type" value="note" checked> 后注</label>
+          <label class="chk"><input type="checkbox" name="type" value="qa" checked> 问答</label>
+          <label class="chk"><input type="checkbox" name="type" value="talk"> 访谈</label>
+          <button class="button" type="submit">检索</button>
+        </div>
+        <p class="samples">
+          <button type="button" data-q="天基雷达为什么行不通">天基雷达为什么行不通</button>
+          <button type="button" data-q="Trump 对俄乌战争的影响">Trump 对俄乌战争的影响</button>
+          <button type="button" data-q="量子通信是不是学术管理误区">量子通信是不是误区</button>
+          <button type="button" data-q="美元金融霸权还剩几年">美元霸权还剩几年</button>
+        </p>
+        <p class="status" id="index-status">正在读取镜像。</p>
+        <div class="answer" id="answer" hidden></div>
+        <div class="hits" id="hits"></div>
+      </form>
+      <aside>
+        <p>语料来自 <a class="link-plain" href="https://github.com/taizihuang/wmyblog">taizihuang/wmyblog</a>，与 <a class="link-plain" href="https://wmyblog.site/">wmyblog.site</a> 同源。原博客在联合新闻网。</p>
+        <p>作者回复才当作答案。后注优先于旧正文。每条结果带日期和链接。</p>
+      </aside>
+    </div>
+  </section>
+
+  <section class="models" id="models">
+    <h2 class="head" data-reveal>对照与作答</h2>
+    <p class="lead" data-reveal>Embedding 和聊天写在服务器环境变量里。Rerank 可开可关。这一页不收密钥。</p>
+    <ul class="model-status">
+      <li data-model="embed" data-reveal style="--i:0"><span>Embedding</span><span class="state">正在检查</span></li>
+      <li data-model="rerank" data-reveal style="--i:1"><span>Rerank</span><span class="state">正在检查</span></li>
+      <li data-model="chat" data-reveal style="--i:2"><span>聊天</span><span class="state">正在检查</span></li>
+    </ul>
+  </section>
+
+  <section class="stats" id="stats">
+    <img class="photo" src="/assets/gargamelle-bubble-chamber-cern-1970.jpg" width="1920" height="1588" alt="1970 年 CERN Gargamelle 气泡室正在装配，巨大的圆柱探测体横在车间里" loading="lazy" decoding="async">
+    <div class="scrim" aria-hidden="true"></div>
+    <h2 class="stats-figure nums">861<span>条后注</span></h2>
+    <p class="stats-note">钉在旧文上。作者把新判断写回旧篇，而不是另开一篇。</p>
+  </section>
+  <div class="stats-sub">
+    <p><strong class="nums">340</strong> 篇正文，从 2014 年写起。</p>
+    <p><strong class="nums">9247</strong> 条带作者回复的问答。</p>
+  </div>
+
+  <section class="how" id="how">
+    <article class="how-panel">
+      <img class="photo" src="/assets/metal-movable-type.jpg" width="1920" height="1276" alt="金属活字密排在字盘里，每个铅块顶面刻着反向字母" loading="lazy" decoding="async">
+      <h2 class="how-verb">检索</h2>
+      <p class="how-copy" data-reveal>浏览器先对镜像做词面检索，这一步不经过模型。</p>
+    </article>
+    <article class="how-panel">
+      <img class="photo" src="/assets/bubble-chamber-event-formula-demonstration-photograph-taken.jpg" width="1920" height="1927" alt="1957 年气泡室径迹照片，旁注衰变公式" loading="lazy" decoding="async">
+      <h2 class="how-verb">对照</h2>
+      <p class="how-copy" data-reveal>用服务器上的 embedding，以及可选的 rerank，把近的段落排到前面。</p>
+    </article>
+    <article class="how-panel">
+      <video class="photo" autoplay muted loop playsinline preload="metadata" poster="/assets/nasa-s-imap-arrives-at-nasa-marshall-poster.jpg" width="1280" height="720" aria-hidden="true">
+        <source src="/assets/nasa-s-imap-arrives-at-nasa-marshall.mp4" type="video/mp4">
+      </video>
+      <h2 class="how-verb">作答</h2>
+      <p class="how-copy" data-reveal>聊天模型只根据检出的原文写，并留下出处。</p>
+    </article>
+  </section>
+
+  <section class="archive" id="list">
+    <div class="archive-grid">
+      <figure class="archive-photo" id="archive-frame">
+        <img class="photo is-on" data-key="article" src="/assets/bubble-chamber-event-photograph-taken-december-16.jpg" width="1920" height="2176" alt="1958 年气泡室径迹，弯曲的白色粒子轨迹铺满黑底" loading="lazy" decoding="async">
+        <img class="photo" data-key="note" src="/assets/recording-bubble-chamber.jpg" width="1920" height="7567" alt="记录用气泡室的细长腔体" loading="lazy" decoding="async">
+        <img class="photo" data-key="qa" src="/assets/linotype-machine-at-the-washington-post-dsc05521.jpg" width="1920" height="2880" alt="华盛顿邮报馆藏的红色莱诺铸排机，背后钉着旧报纸版面" loading="lazy" decoding="async">
+        <img class="photo" data-key="talk" src="/assets/gargamelle-bubble-chamber-cern-1970.jpg" width="1920" height="1588" alt="Gargamelle 气泡室装配现场" loading="lazy" decoding="async">
+        <img class="photo" data-key="guan" src="/assets/beijing-printing-museum-wooden-movable-types.jpg" width="1920" height="1115" alt="北京印刷博物馆的木活字，散放在红布上" loading="lazy" decoding="async">
+        <img class="photo" data-key="guest" src="/assets/metal-movable-type.jpg" width="1920" height="1276" alt="金属活字盘特写" loading="lazy" decoding="async">
+      </figure>
+      <div class="archive-list">
+        <h2 class="head" data-reveal>档案里有</h2>
+        <ul>
+          <li class="is-on" data-key="article" data-reveal style="--i:0">
+            <button type="button"><span class="row">正文 <span class="count nums">340</span></span></button>
+            <p class="desc">带【栏目】的文章。后注从正文里拆出，单独检索。</p>
+          </li>
+          <li data-key="note" data-reveal style="--i:1">
+            <button type="button"><span class="row">后注 <span class="count nums">861</span></span></button>
+            <p class="desc">写在旧文页脚的修订。同一议题以最新后注为准。</p>
+          </li>
+          <li data-key="qa" data-reveal style="--i:2">
+            <button type="button"><span class="row">问答 <span class="count nums">9247</span></span></button>
+            <p class="desc">读者提问与作者回复成对保存，不拆开。</p>
+          </li>
+          <li data-key="talk" data-reveal style="--i:3">
+            <button type="button"><span class="row">访谈 <span class="count nums">751</span></span></button>
+            <p class="desc">《龙行天下》等节目转写，权重视为低于手写原文。</p>
+          </li>
+          <li data-key="guan" data-reveal style="--i:4">
+            <button type="button"><span class="row">观网留言 <span class="count">镜像收录</span></span></button>
+            <p class="desc">作者在观察者网文章下的回复，随镜像更新。</p>
+          </li>
+          <li data-key="guest" data-reveal style="--i:5">
+            <button type="button"><span class="row">访客簿 <span class="count">镜像收录</span></span></button>
+            <p class="desc">博客访客簿里的问答，结构与文章楼下相同。</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq" id="faq">
+    <h2 class="head" data-reveal>问之前</h2>
+    <div class="faq-list">
+      <details>
+        <summary>数据从哪来？<span class="chev" aria-hidden="true"></span></summary>
+        <p>运行时读取 GitHub 仓库 taizihuang/wmyblog 的 search JSON（也可走 jsDelivr）。正文、后注、评论、访谈都在里面。原站 UDN 对脚本不开放，不作为主源。</p>
+      </details>
+      <details>
+        <summary>观点改过怎么办？<span class="chev" aria-hidden="true"></span></summary>
+        <p>后注和较新的回复权重大。答案会写明日期。旧正文仍可被检索，当作历史记录。</p>
+      </details>
+      <details>
+        <summary>模型配在哪？<span class="chev" aria-hidden="true"></span></summary>
+        <p>Embedding 和聊天必须写在服务器环境变量里。Rerank 可空。词面检索仍在浏览器完成，对照和作答走 /api/refine 与 /api/chat。</p>
+      </details>
+      <details>
+        <summary>密钥会进浏览器吗？<span class="chev" aria-hidden="true"></span></summary>
+        <p>不会。密钥只在服务器环境变量。页面不收、不存、不转发密钥。</p>
+      </details>
+      <details>
+        <summary>怎么部署？<span class="chev" aria-hidden="true"></span></summary>
+        <p>静态文件可放 Cloudflare Pages 或 Vercel；Functions 提供 /api/config、/api/refine、/api/chat。Docker 镜像用 Node 同时提供页面和接口。部署后再写入 EMBED_*、CHAT_*，可选 RERANK_*。</p>
+      </details>
+      <details>
+        <summary>和镜像站搜索有何不同？<span class="chev" aria-hidden="true"></span></summary>
+        <p>镜像站是关键词扫描。这里把问答成对检索，再用服务器上的 embedding（及可选 rerank）对照，并由聊天模型带引用作答。</p>
+      </details>
+    </div>
+  </section>
+
+  <footer class="site-foot">
+    <div class="foot-top">
+      <div>
+        <h2 class="head">去问一篇</h2>
+        <a class="button" href="#ask">问档案</a>
+      </div>
+      <div class="foot-links">
+        <a class="link" href="https://github.com/taizihuang/wmyblog">GitHub 镜像</a>
+        <a class="link" href="https://wmyblog.site/">wmyblog.site</a>
+        <a class="link" href="https://blog.udn.com/MengyuanWang/article">原博客</a>
+        <a class="link" href="https://github.com/taizihuang/wmyblog">数据源仓库</a>
+      </div>
+    </div>
+    <p class="credits">图片与影像：<a href="https://commons.wikimedia.org/wiki/File:Bubble_chamber_event._Decay_of_neutral_lambda,_anti-lambda_hyperons._Photograph_circa_July_1959._Bubble_Chamber-772A_-_DPLA_-_5141859e360581251906c073668c70de.jpg">气泡室径迹（1959）</a>，Lawrence Berkeley National Laboratory，公有领域；<a href="https://commons.wikimedia.org/wiki/File:Bubble_chamber_event._Photograph_taken_December_16,_1958._Bubble_Chamber-315B_-_DPLA_-_57790979981199894c1e2fa1b4bce5e8.jpg">气泡室径迹（1958）</a>，公有领域；<a href="https://commons.wikimedia.org/wiki/File:Bubble_chamber_event,_formula_demonstration._Photograph_taken_August_26,_1957._Bubble_Chamber-315A_-_DPLA_-_aace197da4debc8b3ed9548c646e156c.jpg">气泡室公式示意（1957）</a>，公有领域；<a href="https://commons.wikimedia.org/w/index.php?curid=61879702">Gargamelle 气泡室</a>，CERN，<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>；<a href="https://commons.wikimedia.org/w/index.php?curid=41919216">记录用气泡室</a>，W.pseudon，<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>；<a href="https://commons.wikimedia.org/w/index.php?curid=48240202">北京印刷博物馆木活字</a>，Popolon，<a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>；<a href="https://commons.wikimedia.org/wiki/File:Metal_movable_type.jpg">金属活字</a>，Willi Heidelbach，<a href="https://creativecommons.org/licenses/by/2.5">CC BY 2.5</a>；<a href="https://commons.wikimedia.org/wiki/File:Linotype_machine_at_the_Washington_Post_-_DSC05521.JPG">华盛顿邮报莱诺机</a>，Daderot，<a href="https://creativecommons.org/publicdomain/zero/1.0/deed.en">CC0</a>；<a href="https://images.nasa.gov/details/Timelapse%20of%20IMAP%20being%20loaded%20into%20XRCF%20_Edward%20Whitman%20APL">IMAP 装入真空舱</a>，Johns Hopkins APL / Ed Whitman，NASA 公有领域。语料版权归原作者；本页是检索界面。</p>
+    <p class="crop-name" aria-hidden="true">后注</p>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
