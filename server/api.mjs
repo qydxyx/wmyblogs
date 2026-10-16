@@ -36,6 +36,29 @@ function bearer(key) {
   return { authorization: key.startsWith("Bearer ") ? key : `Bearer ${key}` };
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function upstreamError(status, data, raw) {
+  const err = data && data.error;
+  if (typeof err === "string" && err.trim()) return err.trim();
+  if (err && typeof err === "object") {
+    const msg = err.message || err.status || err.code;
+    if (msg) return String(msg);
+  }
+  if (data && data.detail) return String(data.detail);
+  const snippet = String(raw || "").replace(/\s+/g, " ").trim().slice(0, 240);
+  if (snippet) return snippet;
+  if (status === 429) return "模型限流，请稍后再试";
+  if (status === 503 || status === 529) return "模型繁忙，请稍后再试";
+  return `HTTP ${status}`;
+}
+
+function retryableStatus(status) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 529;
+}
+
 function missingOf(env, keys) {
   return keys.filter((k) => !envValue(env, k));
 }
@@ -71,39 +94,68 @@ function cosine(a, b) {
   return dot / ((Math.sqrt(na) || 1) * (Math.sqrt(nb) || 1));
 }
 
-async function upstreamPost(url, key, body) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...bearer(key)
-    },
-    body: JSON.stringify(body)
-  });
-  const text = await res.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(text.slice(0, 280) || `HTTP ${res.status}`);
+async function upstreamPost(url, key, body, attempts = 4) {
+  let last = "upstream failed";
+  for (let i = 0; i < attempts; i++) {
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...bearer(key)
+        },
+        body: JSON.stringify(body)
+      });
+    } catch (err) {
+      last = String(err.message || err);
+      if (i === attempts - 1) throw new Error(last);
+      await sleep(400 * 2 ** i);
+      continue;
+    }
+    const text = await res.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {};
+    }
+    if (res.ok) return data;
+    last = upstreamError(res.status, data, text);
+    if (!retryableStatus(res.status) || i === attempts - 1) throw new Error(last);
+    let wait = 400 * 2 ** i;
+    const ra = Number(res.headers.get("retry-after"));
+    if (Number.isFinite(ra) && ra > 0) wait = Math.min(8000, ra * 1000);
+    await sleep(wait);
   }
-  if (!res.ok) {
-    throw new Error(data.error?.message || data.error || data.detail || `HTTP ${res.status}`);
-  }
-  return data;
+  throw new Error(last);
 }
 
-async function embedTexts(env, inputs) {
+async function embedChunk(env, inputs) {
   const data = await upstreamPost(envValue(env, "EMBED_URL"), envValue(env, "EMBED_KEY"), {
     model: envValue(env, "EMBED_MODEL"),
     input: inputs
   });
   const list = data.data || data.embeddings || [];
   if (!list.length) throw new Error("embedding 没有返回向量");
-  return list
-    .map((row) => ({ index: row.index ?? 0, vec: row.embedding || row }))
-    .sort((a, b) => a.index - b.index)
-    .map((r) => r.vec);
+  const vecs = new Array(inputs.length);
+  list.forEach((row, i) => {
+    const idx = Number.isInteger(row.index) ? row.index : i;
+    const vec = row.embedding || row.values || row;
+    if (idx >= 0 && idx < vecs.length) vecs[idx] = vec;
+  });
+  if (vecs.some((v) => !v)) throw new Error("embedding 向量条数不够");
+  return vecs;
+}
+
+async function embedTexts(env, inputs) {
+  const out = [];
+  const size = 8;
+  for (let i = 0; i < inputs.length; i += size) {
+    const part = await embedChunk(env, inputs.slice(i, i + size));
+    out.push(...part);
+  }
+  return out;
 }
 
 async function rerankDocs(env, query, documents) {
@@ -181,7 +233,8 @@ export async function handleChat(request, env) {
     const data = await upstreamPost(envValue(env, "CHAT_URL"), envValue(env, "CHAT_KEY"), {
       model: envValue(env, "CHAT_MODEL"),
       messages,
-      temperature: 0.15
+      temperature: 0.15,
+      max_tokens: 900
     });
     const choice = data.choices && data.choices[0];
     const text = choice?.message?.content || choice?.text || data.output_text || data.content || "";

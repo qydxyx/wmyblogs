@@ -273,9 +273,26 @@ p + p { margin-top: 0.9em; }
   margin-top: 2.5rem;
   max-width: 54ch;
   font-size: var(--step-body);
-  line-height: 1.55;
+  line-height: 1.62;
+}
+.answer p { margin: 0 0 0.95em; }
+.answer strong { font-weight: 500; }
+.answer ol,
+.answer ul {
+  margin: 0.35em 0 1.05em;
+  padding-left: 1.35em;
+}
+.answer li { margin: 0.45em 0; }
+.answer li ul {
+  margin: 0.4em 0 0.15em;
+  padding-left: 1.15em;
 }
 .answer a { text-decoration: underline; text-underline-offset: 0.16em; }
+.answer .cites {
+  margin-top: 1.5rem;
+  font-size: var(--step-small);
+  opacity: 0.88;
+}
 .hits { margin-top: 2.2rem; display: grid; gap: 1.6rem; }
 .ask aside { font-size: var(--step-small); max-width: 28ch; margin-top: 0.4rem; }
 .ask aside .link-plain { text-decoration: underline; text-underline-offset: 0.16em; }

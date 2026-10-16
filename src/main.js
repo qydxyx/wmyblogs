@@ -54,6 +54,13 @@ function searchIndex(query, kinds, limit = 28) {
   });
 }
 
+function friendlyError(err) {
+  const msg = String(err && err.message ? err.message : err);
+  if (/503|529|overloaded|unavailable|繁忙/i.test(msg)) return "模型现在忙，再问一次即可。";
+  if (/429|rate limit|resource.?exhausted|限流/i.test(msg)) return "模型限流，稍等再问。";
+  return msg;
+}
+
 function setStatus(text) {
   const el = document.getElementById("index-status");
   if (el) el.textContent = text;
@@ -112,19 +119,101 @@ function renderHits(root, hits) {
   }
 }
 
+function scriptHint(query) {
+  const t = String(query || "");
+  const tw = (t.match(/[為這國對後發會說經與無麼嗎東車門開關時長來過還個樣點現體業發]/g) || []).length;
+  const cn = (t.match(/[为这国对后发会说经与无么吗东车门开关时长来过还个样点现体业]/g) || []).length;
+  return tw > cn ? "繁體中文" : "简体中文";
+}
+
+function appendInline(node, text) {
+  const re = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) node.append(text.slice(last, m.index));
+    const strong = document.createElement("strong");
+    strong.textContent = m[1];
+    node.append(strong);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) node.append(text.slice(last));
+}
+
+function fillBlock(el, text) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return;
+  const parts = raw.split(/\s+[-–]\s+/);
+  if (el.tagName === "LI" && parts.length > 1 && parts[0].length <= 60) {
+    appendInline(el, parts[0].replace(/[:：]\s*$/, ""));
+    const sub = document.createElement("ul");
+    parts.slice(1).forEach((bit) => {
+      const t = bit.replace(/^[-–]\s*/, "").trim();
+      if (!t) return;
+      const li = document.createElement("li");
+      appendInline(li, t);
+      sub.append(li);
+    });
+    if (sub.childNodes.length) el.append(sub);
+    return;
+  }
+  appendInline(el, raw);
+}
+
 function renderAnswer(root, text, hits) {
   root.hidden = false;
   root.replaceChildren();
-  const parts = String(text || "").trim().split(/\n{2,}/);
-  for (const part of parts) {
+  const lines = String(text || "")
+    .replace(/\r\n/g, "\n")
+    .trim()
+    .split("\n")
+    .map((l) => l.replace(/^\s+/, ""));
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line) {
+      i++;
+      continue;
+    }
+    const ordered = line.match(/^(\d+)[\.、\)]\s+(.*)$/);
+    const bullet = line.match(/^[-*•]\s+(.*)$/);
+    if (ordered || bullet) {
+      const list = document.createElement(ordered ? "ol" : "ul");
+      if (ordered) list.start = Number(ordered[1]);
+      while (i < lines.length) {
+        const L = lines[i];
+        const m = ordered ? L.match(/^(\d+)[\.、\)]\s+(.*)$/) : L.match(/^[-*•]\s+(.*)$/);
+        if (!m) break;
+        const li = document.createElement("li");
+        fillBlock(li, m[2] || m[1]);
+        list.append(li);
+        i++;
+      }
+      root.append(list);
+      continue;
+    }
+    const buf = [line];
+    i++;
+    while (
+      i < lines.length &&
+      lines[i] &&
+      !/^(\d+)[\.、\)]\s+/.test(lines[i]) &&
+      !/^[-*•]\s+/.test(lines[i])
+    ) {
+      buf.push(lines[i]);
+      i++;
+    }
     const p = document.createElement("p");
-    p.textContent = part;
+    fillBlock(p, buf.join(" "));
     root.append(p);
   }
+
   if (hits.length) {
     const list = document.createElement("p");
+    list.className = "cites";
     list.append("出处：");
-    hits.slice(0, 8).forEach((hit, i) => {
+    hits.slice(0, 6).forEach((hit, i) => {
       if (i) list.append(" ");
       const a = document.createElement("a");
       a.href = hit.url;
@@ -139,16 +228,20 @@ function renderAnswer(root, text, hits) {
 
 function chatMessages(query, hits) {
   const excerpts = hits
-    .slice(0, 8)
+    .slice(0, 6)
     .map((h, i) => {
-      return `〔${i + 1}〕${KIND_LABEL[h.kind] || h.kind} ${h.date || ""} ${h.title}\n${h.passage}\n${h.url}`;
+      const body = String(h.passage || "").slice(0, 900);
+      return `〔${i + 1}〕${KIND_LABEL[h.kind] || h.kind} ${h.date || ""} ${h.title}\n${body}\n${h.url}`;
     })
     .join("\n\n");
+  const script = scriptHint(query);
   return [
     {
       role: "system",
       content:
-        "你是「后注」检索界面的作答器。只根据用户给出的摘录回答。摘录来自王孟源博客镜像（正文、后注、作者回复、访谈转写）。后注和较新的作者回复优先于旧正文。若摘录互相冲突，写明日期并采用较新者。不要编造摘录里没有的事实。关键判断后用〔编号〕标出摘录。若摘录不够，直说档案里没有写到。用与提问相同的中文（简体或繁体）。"
+        "你是「后注」的作答器。只根据用户给出的摘录写。摘录来自王孟源博客镜像（正文、后注、作者回复、访谈）。后注和较新的作者回复优先于旧正文；冲突时写明日期并采用较新者。不要编造摘录里没有的事实。句末用〔1〕〔2〕标出处。摘录不够就直说档案没写到。全文用" +
+        script +
+        "。写短段，像杂志专栏。不要星号加粗、不要井号标题、不要代码块。不要「根据摘录」「主要包括以下几个方面」这类套话。先用两三句把结论说完，再分段讲因果，段与段空一行。"
     },
     {
       role: "user",
@@ -167,7 +260,9 @@ async function readJson(res) {
 }
 
 async function refineHits(query, hits, signal) {
-  const documents = hits.map((h) => `${h.title}\n${h.passage}`.slice(0, 1200));
+  const head = hits.slice(0, 16);
+  const rest = hits.slice(16);
+  const documents = head.map((h) => `${h.title}\n${h.passage}`.slice(0, 800));
   const res = await fetch("/api/refine", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -180,15 +275,15 @@ async function refineHits(query, hits, signal) {
   const used = new Set();
   const ranked = [];
   for (const i of order) {
-    if (hits[i] && !used.has(i)) {
+    if (head[i] && !used.has(i)) {
       used.add(i);
-      ranked.push(hits[i]);
+      ranked.push(head[i]);
     }
   }
-  hits.forEach((h, i) => {
+  head.forEach((h, i) => {
     if (!used.has(i)) ranked.push(h);
   });
-  return ranked;
+  return ranked.concat(rest);
 }
 
 async function askChat(query, hits, signal) {
@@ -235,12 +330,20 @@ async function runAsk(form) {
       return;
     }
     setStatus("正在用 embedding 对照。");
-    hits = await refineHits(q, hits, ac.signal);
-    renderHits(hitsRoot, hits.slice(0, 10));
+    try {
+      hits = await refineHits(q, hits, ac.signal);
+      renderHits(hitsRoot, hits.slice(0, 10));
+    } catch (err) {
+      setStatus(`对照未完成，仍用词面结果。${friendlyError(err)}`);
+    }
     setStatus("正在作答。");
-    const text = await askChat(q, hits, ac.signal);
-    renderAnswer(answerRoot, text, hits);
-    setStatus(serverConfig.rerank ? "作答完成（含 rerank）。下面是出处。" : "作答完成。下面是出处。");
+    try {
+      const text = await askChat(q, hits, ac.signal);
+      renderAnswer(answerRoot, text, hits);
+      setStatus(serverConfig.rerank ? "作答完成（含 rerank）。下面是出处。" : "作答完成。下面是出处。");
+    } catch (err) {
+      setStatus(`作答暂时失败，下面仍是出处。${friendlyError(err)}`);
+    }
   } catch (err) {
     setStatus(String(err.message || err));
   } finally {
